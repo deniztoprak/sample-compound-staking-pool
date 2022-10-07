@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/deniztoprak/sample-compound-staking-pool/issues"
   },
-  "homepage": "https://github.com/deniztoprak/sample-compound-staking-pool#readme"
+  "homepage": "https://github.com/deniztoprak/sample-compound-staking-pool#readme",
+  "devDependencies": {
+    "hardhat": "^2.11.2"
+  }
 }
