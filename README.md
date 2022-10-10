@@ -1,6 +1,6 @@
 # Staking Pool
 
-A decentralized staking pool app running on EVM.
+A naive implementation of a decentralized staking pool running on EVM.
 
 ## Functional Requirements
 
