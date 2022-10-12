@@ -77,21 +77,19 @@ describe('Pool', function () {
       expect(user2Balance).to.equal(user2StakedValue);
     });
 
-    it('updates total supply when users stake ether', async function () {
+    it('updates total balance when users stake ether', async function () {
       const [deployer, user1, user2] = await ethers.getSigners();
       const user1StakedValue = ethers.utils.parseEther('5');
       const user2StakedValue = ethers.utils.parseEther('10');
       const { PoolInstance } = await loadFixture(deployContracts);
       await PoolInstance.connect(user1).stake({ value: user1StakedValue });
-      // await time.increaseTo(1696979854);
-      // await PoolInstance.connect(user1).stake({ value: user1StakedValue });
       await PoolInstance.connect(user2).stake({ value: user2StakedValue });
-      const totalSupply = await PoolInstance.totalSupply();
+      const totalBalance = await ethers.provider.getBalance(PoolInstance.address);
 
-      expect(totalSupply).to.equal(user1StakedValue.add(user2StakedValue));
+      expect(totalBalance).to.equal(user1StakedValue.add(user2StakedValue));
     });
 
-    it('updates reward when users stake', async function () {
+    it('updates rewards when users stake', async function () {
       const [deployer, user1, user2] = await ethers.getSigners();
       const user1StakedValue = ethers.utils.parseEther('36');
       const user2StakedValue = ethers.utils.parseEther('72');
@@ -99,7 +97,7 @@ describe('Pool', function () {
       // Initial stake
       await PoolInstance.connect(user1).stake({ value: user1StakedValue });
       await PoolInstance.connect(user2).stake({ value: user2StakedValue });
-      // Fast forward time
+      // Fast forward 1 year
       await time.increase(ONE_YEAR_IN_SECONDS);
 
       const user1Reward = await PoolInstance.rewardOf(user1.address);
@@ -111,13 +109,13 @@ describe('Pool', function () {
       expect(user2Reward).to.equal(user2ExpectedReward);
     });
 
-    it('updates reward when users increase their stake', async function () {
+    it('updates rewards when users increase their stake', async function () {
       const [deployer, user1] = await ethers.getSigners();
       const user1StakedValue = ethers.utils.parseEther('36');
       const { PoolInstance, PoolAPR } = await loadFixture(deployContracts);
       // Initial stake
       await PoolInstance.connect(user1).stake({ value: user1StakedValue });
-      // Fast forward time
+      // Fast forward 1 year
       await time.increase(ONE_YEAR_IN_SECONDS);
       // Additional stake
       await PoolInstance.connect(user1).stake({ value: user1StakedValue });
@@ -146,6 +144,110 @@ describe('Pool', function () {
 
       await expect(PoolInstance.connect(user1).stake({ value: user1StakedValue })).to.be.revertedWith(
         'Staking amount should be minimum 5 ETH'
+      );
+    });
+  });
+
+  describe('Withdrawal', function () {
+    it("updates users' balance when they withdraw ether", async function () {
+      const [deployer, user1, user2] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('5');
+      const user2StakedValue = ethers.utils.parseEther('10');
+      const { PoolInstance } = await loadFixture(deployContracts);
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+      await PoolInstance.connect(user2).stake({ value: user2StakedValue });
+      await PoolInstance.connect(user1).withdraw(user1StakedValue.div(2));
+      await PoolInstance.connect(user2).withdraw(user2StakedValue.div(2));
+      const user1Balance = await PoolInstance.balanceOf(user1.address);
+      const user2Balance = await PoolInstance.balanceOf(user2.address);
+
+      expect(user1Balance).to.equal(user1StakedValue.div(2));
+      expect(user2Balance).to.equal(user2StakedValue.div(2));
+    });
+
+    it('updates total balance when users withdraw ether', async function () {
+      const [deployer, user1, user2] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('5');
+      const user2StakedValue = ethers.utils.parseEther('10');
+      const { PoolInstance } = await loadFixture(deployContracts);
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+      await PoolInstance.connect(user2).stake({ value: user2StakedValue });
+      await PoolInstance.connect(user1).withdraw(user1StakedValue.div(2));
+      await PoolInstance.connect(user2).withdraw(user2StakedValue.div(2));
+      const totalBalance = await ethers.provider.getBalance(PoolInstance.address);
+
+      expect(totalBalance).to.equal(user1StakedValue.add(user2StakedValue).div(2));
+    });
+
+    it('updates rewards when users withdraw liquidity', async function () {
+      const [deployer, user1, user2] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('36');
+      const user2StakedValue = ethers.utils.parseEther('72');
+      const { PoolInstance, PoolAPR } = await loadFixture(deployContracts);
+      // Initial stake
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+      await PoolInstance.connect(user2).stake({ value: user2StakedValue });
+      // Fast forward 1 year
+      await time.increase(ONE_YEAR_IN_SECONDS);
+      // Withdrawal
+      await PoolInstance.connect(user1).withdraw(user1StakedValue.div(2));
+      await PoolInstance.connect(user2).withdraw(user2StakedValue.div(2));
+      // Fast forward 2 years
+      await time.increase(ONE_YEAR_IN_SECONDS * 2);
+
+      const user1Reward = await PoolInstance.rewardOf(user1.address);
+      const user2Reward = await PoolInstance.rewardOf(user2.address);
+      const user1ExpectedReward = user1StakedValue.mul(PoolAPR).div(100).mul(2);
+      const user2ExpectedReward = user2StakedValue.mul(PoolAPR).div(100).mul(2);
+
+      expect(user1Reward).to.equal(user1ExpectedReward);
+      expect(user2Reward).to.equal(user2ExpectedReward);
+    });
+
+    it('transfers withdrawn liquidity to users', async function () {
+      const [deployer, user1, user2] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('50');
+      const user2StakedValue = ethers.utils.parseEther('100');
+      const { PoolInstance, PoolAPR } = await loadFixture(deployContracts);
+
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+      await PoolInstance.connect(user2).stake({ value: user2StakedValue });
+
+      const user1InitialBalance = await ethers.provider.getBalance(user1.address);
+      const user2InitialBalance = await ethers.provider.getBalance(user2.address);
+
+      await PoolInstance.connect(user1).withdraw(user1StakedValue.div(2));
+      await PoolInstance.connect(user2).withdraw(user2StakedValue.div(2));
+
+      const user1Balance = await ethers.provider.getBalance(user1.address);
+      const user2Balance = await ethers.provider.getBalance(user2.address);
+
+      // Exact balance can not be checked because of unknown gas usage
+      expect(user1Balance).to.be.greaterThan(user1InitialBalance);
+      expect(user2Balance).to.be.greaterThan(user2InitialBalance);
+    });
+
+    it('reverts when withdraw amount is 0', async function () {
+      const [deployer, user1] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('10');
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+
+      await expect(PoolInstance.connect(user1).withdraw(ethers.BigNumber.from('0'))).to.be.revertedWith(
+        'Withdraw amount can not be 0'
+      );
+    });
+
+    it("reverts when users don't have enough balance", async function () {
+      const [deployer, user1] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('10');
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+
+      await expect(PoolInstance.connect(user1).withdraw(user1StakedValue.add(1))).to.be.revertedWith(
+        "User doesn't have enough balance"
       );
     });
   });

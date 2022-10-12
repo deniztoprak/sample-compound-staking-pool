@@ -17,6 +17,7 @@ contract Pool {
 
     // Events
     event Staked(address indexed account, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount);
 
     // State variables
 
@@ -25,11 +26,10 @@ contract Pool {
 
     struct Stake {
         uint256 balance;
-        uint256 lastStakeTime;
+        uint256 lastUpdate;
         uint256 dueReward;
     }
 
-    uint256 private _totalSupply;
     mapping(address => Stake) private _stakes;
 
     /**
@@ -47,38 +47,31 @@ contract Pool {
     // View functions
 
     /**
-     * @notice Returns total liquidity supply of the contract
-     */
-    function totalSupply() external view returns (uint256) {
-        return _totalSupply;
-    }
-
-    /**
      * @notice Returns the balance of an account
      */
-    function balanceOf(address account) external view returns (uint256) {
-        return _stakes[account].balance;
+    function balanceOf(address _account) external view returns (uint256) {
+        return _stakes[_account].balance;
     }
 
     /**
      * @notice Returns the reward of an account
      * @dev View functions don't cost gas when called externally
      */
-    function rewardOf(address account) external view returns (uint256) {
-        return _stakes[account].dueReward + calculateReward(account);
+    function rewardOf(address _account) external view returns (uint256) {
+        return _stakes[_account].dueReward + calculateReward(_account);
     }
 
     /**
      * @notice Returns the due reward
      */
-    function calculateReward(address account) internal view returns (uint256) {
-        uint256 yearlyInterest = (_stakes[account].balance * apr) / 100;
-        uint256 stakedDay = (block.timestamp - _stakes[account].lastStakeTime) / 60 / 60 / 24;
+    function calculateReward(address _account) internal view returns (uint256) {
+        uint256 yearlyInterest = (_stakes[_account].balance * apr) / 100;
+        uint256 stakedDay = (block.timestamp - _stakes[_account].lastUpdate) / 60 / 60 / 24;
         // console.log("Balance", _stakes[account].balance);
         // console.log("Yearly interest", yearlyInterest);
-        // console.log("Last stake time", _stakes[account].lastStakeTime);
+        // console.log("Last stake time", _stakes[account].lastUpdate);
         // console.log("Block time", block.timestamp);
-        // console.log("Time diff", block.timestamp - _stakes[account].lastStakeTime);
+        // console.log("Time diff", block.timestamp - _stakes[account].lastUpdate);
         // console.log("Staked Day", stakedDay);
         // console.log("Reward", (yearlyInterest / 360) * stakedDay);
 
@@ -96,14 +89,30 @@ contract Pool {
     function stake() external payable {
         require(msg.value >= 5 ether, "Staking amount should be minimum 5 ETH");
         if (_stakes[msg.sender].balance != 0) {
-            // If user has already staked: calculate the reward, store it in dueReward and restart stake time
+            // If user has already staked: calculate the reward, store it in dueReward and update stake time
             // This prevents false reward calculation when user adds liquidity incrementally
-            _stakes[msg.sender].dueReward = calculateReward(msg.sender);
+            _stakes[msg.sender].dueReward += calculateReward(msg.sender);
         }
 
         _stakes[msg.sender].balance += msg.value;
-        _stakes[msg.sender].lastStakeTime = block.timestamp;
-        _totalSupply += msg.value;
+        _stakes[msg.sender].lastUpdate = block.timestamp;
         emit Staked(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Withdraw given amount of liquidity
+     */
+    function withdraw(uint256 _amount) external {
+        // Use checks-effects-interactions pattern to prevent re-entrancy
+        // see: https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html
+        require(_amount > 0, "Withdraw amount can not be 0");
+        require(_amount <= _stakes[msg.sender].balance, "User doesn't have enough balance");
+
+        _stakes[msg.sender].dueReward += calculateReward(msg.sender);
+        _stakes[msg.sender].balance -= _amount;
+        _stakes[msg.sender].lastUpdate = block.timestamp;
+        (bool success, ) = msg.sender.call{ value: _amount }("");
+        require(success, "receiver rejected ETH transfer");
+        emit Withdrawn(msg.sender, _amount);
     }
 }
