@@ -17,7 +17,7 @@ contract Pool {
 
     // Events
     event Staked(address indexed account, uint256 amount);
-    event Withdrawn(address indexed user, uint256 amount);
+    event Withdrawn(address indexed account, uint256 amount);
 
     // State variables
 
@@ -112,7 +112,7 @@ contract Pool {
         _stakes[msg.sender].balance -= _amount;
         _stakes[msg.sender].lastUpdate = block.timestamp;
         (bool success, ) = msg.sender.call{ value: _amount }("");
-        require(success, "receiver rejected ETH transfer");
+        require(success, "Receiver rejected ETH transfer");
         emit Withdrawn(msg.sender, _amount);
     }
 }

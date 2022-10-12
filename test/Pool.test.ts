@@ -227,6 +227,18 @@ describe('Pool', function () {
       expect(user2Balance).to.be.greaterThan(user2InitialBalance);
     });
 
+    it('emits "withdrawn" event when users withdrawal', async function () {
+      const [deployer, user1] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('10');
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+
+      await expect(PoolInstance.connect(user1).withdraw(user1StakedValue.sub(1)))
+        .to.emit(PoolInstance, 'Withdrawn')
+        .withArgs(user1.address, user1StakedValue.sub(1));
+    });
+
     it('reverts when withdraw amount is 0', async function () {
       const [deployer, user1] = await ethers.getSigners();
       const user1StakedValue = ethers.utils.parseEther('10');
