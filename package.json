@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/deniztoprak/sample-compound-staking-pool#readme",
   "devDependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "hardhat": "^2.11.2"
   },
