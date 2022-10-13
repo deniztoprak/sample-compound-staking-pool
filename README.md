@@ -4,9 +4,9 @@ A naive implementation of a decentralized staking pool running on EVM.
 
 Contracts deployed and verified on Görli testnet:
 
-DevUSDC deployed to: [0xB55886038CD6290318c3998D30009DA416b930a0](https://goerli.etherscan.io/address/0xb55886038cd6290318c3998d30009da416b930a0)
+DevUSDC deployed on: [0xB55886038CD6290318c3998D30009DA416b930a0](https://goerli.etherscan.io/address/0xb55886038cd6290318c3998d30009da416b930a0)
 
-Pool deployed to: [0xea5408f7F4390FB241b92a1AD2FCE7Ed00a97148](https://goerli.etherscan.io/address/0xea5408f7f4390fb241b92a1ad2fce7ed00a97148)
+Pool deployed on: [0xea5408f7F4390FB241b92a1AD2FCE7Ed00a97148](https://goerli.etherscan.io/address/0xea5408f7f4390fb241b92a1ad2fce7ed00a97148)
 
 ## Functional Requirements
 
