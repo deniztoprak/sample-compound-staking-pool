@@ -53,6 +53,7 @@ contract Pool is Ownable {
     ) {
         require(_cEtherContract != address(0), "CEth token contract address can not be zero");
         require(_rewardTokenContract != address(0), "Reward token contract address can not be zero");
+        require(_priceFeedContract != address(0), "Price feed contract address can not be zero");
         require(_apr > 0 && _apr <= 100, "APR must be between 1 and 100");
         cEthToken = CEth(_cEtherContract);
         rewardToken = IERC20(_rewardTokenContract);

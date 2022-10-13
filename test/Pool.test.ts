@@ -33,17 +33,10 @@ describe('Pool', function () {
     // Allow Pool to spend all issued USDC tokens
     await RewardTokenInstance.approve(PoolInstance.address, RewardTokenInitialSupply);
 
-    return { PoolInstance, CEthTokenInstance, RewardTokenInstance, PoolAPR };
+    return { PoolInstance, CEthTokenInstance, RewardTokenInstance, PriceFeedInstance, PoolAPR };
   }
 
   describe('Deployment', function () {
-    it('sets the reward token address', async function () {
-      const { PoolInstance, RewardTokenInstance } = await loadFixture(deployContracts);
-      const rewardToken = await PoolInstance.rewardToken();
-
-      expect(rewardToken).to.equal(RewardTokenInstance.address);
-    });
-
     it('sets the CEth token address', async function () {
       const { PoolInstance, CEthTokenInstance } = await loadFixture(deployContracts);
       const cEthToken = await PoolInstance.cEthToken();
@@ -51,13 +44,25 @@ describe('Pool', function () {
       expect(cEthToken).to.equal(CEthTokenInstance.address);
     });
 
-    it('reverts when the reward token address is not provided', async function () {
-      const Pool = await ethers.getContractFactory('Pool');
-      const randomAddress = '0x1111111111111111111111111111111111111111';
+    it('sets the reward token address', async function () {
+      const { PoolInstance, RewardTokenInstance } = await loadFixture(deployContracts);
+      const rewardToken = await PoolInstance.rewardToken();
 
-      await expect(Pool.deploy(randomAddress, ethers.constants.AddressZero, randomAddress, '123')).to.be.revertedWith(
-        'Reward token contract address can not be zero'
-      );
+      expect(rewardToken).to.equal(RewardTokenInstance.address);
+    });
+
+    it('sets the price feed address', async function () {
+      const { PoolInstance, PriceFeedInstance } = await loadFixture(deployContracts);
+      const priceFeed = await PoolInstance.priceFeed();
+
+      expect(priceFeed).to.equal(PriceFeedInstance.address);
+    });
+
+    it('sets the annual percentage rate', async function () {
+      const { PoolInstance, PoolAPR } = await loadFixture(deployContracts);
+      const apr = await PoolInstance.apr();
+
+      expect(apr).to.equal(PoolAPR);
     });
 
     it('reverts when the CEth token address is not provided', async function () {
@@ -69,11 +74,22 @@ describe('Pool', function () {
       );
     });
 
-    it('sets the annual percentage rate', async function () {
-      const { PoolInstance, PoolAPR } = await loadFixture(deployContracts);
-      const apr = await PoolInstance.apr();
+    it('reverts when the reward token address is not provided', async function () {
+      const Pool = await ethers.getContractFactory('Pool');
+      const randomAddress = '0x1111111111111111111111111111111111111111';
 
-      expect(apr).to.equal(PoolAPR);
+      await expect(Pool.deploy(randomAddress, ethers.constants.AddressZero, randomAddress, '123')).to.be.revertedWith(
+        'Reward token contract address can not be zero'
+      );
+    });
+
+    it('reverts when the price feed address is not provided', async function () {
+      const Pool = await ethers.getContractFactory('Pool');
+      const randomAddress = '0x1111111111111111111111111111111111111111';
+
+      await expect(Pool.deploy(randomAddress, randomAddress, ethers.constants.AddressZero, '123')).to.be.revertedWith(
+        'Price feed contract address can not be zero'
+      );
     });
 
     it('reverts when the annual percentage rate is below 1', async function () {
