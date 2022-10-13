@@ -1,22 +1,29 @@
 import { ethers } from 'hardhat';
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-  const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
+  const RewardToken = await ethers.getContractFactory('DevUSDCToken');
+  const RewardTokenInitialSupply = ethers.BigNumber.from('999999999999999999999');
+  const RewardTokenInstance = await RewardToken.deploy(RewardTokenInitialSupply);
 
-  const lockedAmount = ethers.utils.parseEther('1');
+  await RewardTokenInstance.deployed();
 
-  const Lock = await ethers.getContractFactory('Lock');
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  console.log(`DevUSDC deployed to: ${RewardTokenInstance.address}`);
 
-  await lock.deployed();
+  const Pool = await ethers.getContractFactory('Pool');
+  const CETHTokenAddress = '0x64078a6189Bf45f80091c6Ff2fCEe1B15Ac8dbde';
+  const PriceFeedAddress = '0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e';
+  const PoolAPR = ethers.BigNumber.from('10');
+  const PoolInstance = await Pool.deploy(CETHTokenAddress, RewardTokenInstance.address, PriceFeedAddress, PoolAPR);
 
-  console.log(`Lock with 1 ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`);
+  await PoolInstance.deployed();
+
+  console.log(`Pool deployed to: ${PoolInstance.address}`);
+
+  await RewardTokenInstance.approve(PoolInstance.address, RewardTokenInitialSupply);
+
+  console.log('DevUSDC allowance of Pool contract is set');
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;

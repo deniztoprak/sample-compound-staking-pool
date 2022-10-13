@@ -4,7 +4,7 @@
   "description": "A sample staking pool",
   "main": "index.js",
   "scripts": {
-    "deploy": "hardhat run scripts/deploy.js",
+    "deploy": "hardhat run scripts/deploy.ts --network goerli",
     "test": "hardhat test"
   },
   "repository": {
@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@chainlink/contracts": "^0.5.1",
-    "@openzeppelin/contracts": "^4.7.3"
+    "@openzeppelin/contracts": "^4.7.3",
+    "dotenv": "^16.0.3"
   }
 }
