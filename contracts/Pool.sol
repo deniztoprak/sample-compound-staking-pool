@@ -75,8 +75,9 @@ contract Pool {
         // console.log("Staked Day", stakedDay);
         // console.log("Reward", (yearlyInterest / 360) * stakedDay);
 
+        // Calculate daily periodic interest rate (yearlyInterest / 360)
         // Assume the APR is for 360 days instead of 365
-        // 360 is a highly composite number which leads to more precise results
+        // 360 is a highly composite number which yields more precise results
         // https://en.wikipedia.org/wiki/Highly_composite_number
         return (yearlyInterest / 360) * stakedDay;
     }
@@ -86,7 +87,7 @@ contract Pool {
     /**
      * @notice Stake given amount of liquidity
      */
-    function stake() external payable {
+    function stake() public payable {
         require(msg.value >= 5 ether, "Staking amount should be minimum 5 ETH");
         if (_stakes[msg.sender].balance != 0) {
             // If user has already staked: calculate the reward, store it in dueReward and update stake time
@@ -114,5 +115,9 @@ contract Pool {
         (bool success, ) = msg.sender.call{ value: _amount }("");
         require(success, "Receiver rejected ETH transfer");
         emit Withdrawn(msg.sender, _amount);
+    }
+
+    receive() external payable {
+        stake();
     }
 }

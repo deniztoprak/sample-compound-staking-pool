@@ -263,4 +263,16 @@ describe('Pool', function () {
       );
     });
   });
+
+  describe('Fallback', function () {
+    it.only('receives liquidity when users send it directly to the contract address', async function () {
+      const [deployer, user1] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('5');
+      const { PoolInstance } = await loadFixture(deployContracts);
+      await user1.sendTransaction({ to: PoolInstance.address, value: user1StakedValue });
+      const user1Balance = await PoolInstance.balanceOf(user1.address);
+
+      expect(user1Balance).to.equal(user1StakedValue);
+    });
+  });
 });
