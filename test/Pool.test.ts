@@ -4,9 +4,10 @@ import { ethers } from 'hardhat';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('Pool', function () {
-  const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
+  const TEST_ADDRESS: string = '0x1111111111111111111111111111111111111111';
+  const ONE_DAY_IN_SECONDS: number = 60 * 60 * 24;
   // Assume the APR is for 360 days instead of 365
-  const ONE_YEAR_IN_SECONDS = ONE_DAY_IN_SECONDS * 360;
+  const ONE_YEAR_IN_SECONDS: number = ONE_DAY_IN_SECONDS * 360;
 
   // Define a fixture to reuse the same setup
   async function deployContracts() {
@@ -67,45 +68,40 @@ describe('Pool', function () {
 
     it('reverts when the CEth token address is not provided', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const randomAddress = '0x1111111111111111111111111111111111111111';
 
-      await expect(Pool.deploy(ethers.constants.AddressZero, randomAddress, randomAddress, '123')).to.be.revertedWith(
+      await expect(Pool.deploy(ethers.constants.AddressZero, TEST_ADDRESS, TEST_ADDRESS, '123')).to.be.revertedWith(
         'CEth token contract address can not be zero'
       );
     });
 
     it('reverts when the reward token address is not provided', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const randomAddress = '0x1111111111111111111111111111111111111111';
 
-      await expect(Pool.deploy(randomAddress, ethers.constants.AddressZero, randomAddress, '123')).to.be.revertedWith(
+      await expect(Pool.deploy(TEST_ADDRESS, ethers.constants.AddressZero, TEST_ADDRESS, '123')).to.be.revertedWith(
         'Reward token contract address can not be zero'
       );
     });
 
     it('reverts when the price feed address is not provided', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const randomAddress = '0x1111111111111111111111111111111111111111';
 
-      await expect(Pool.deploy(randomAddress, randomAddress, ethers.constants.AddressZero, '123')).to.be.revertedWith(
+      await expect(Pool.deploy(TEST_ADDRESS, TEST_ADDRESS, ethers.constants.AddressZero, '123')).to.be.revertedWith(
         'Price feed contract address can not be zero'
       );
     });
 
     it('reverts when the annual percentage rate is below 1', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const randomAddress = '0x1111111111111111111111111111111111111111';
       const PoolAPR = ethers.BigNumber.from('0');
-      await expect(Pool.deploy(randomAddress, randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
+      await expect(Pool.deploy(TEST_ADDRESS, TEST_ADDRESS, TEST_ADDRESS, PoolAPR)).to.be.revertedWith(
         'APR must be between 1 and 100'
       );
     });
 
     it('reverts when the annual percentage rate is above 100', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const randomAddress = '0x1111111111111111111111111111111111111111';
       const PoolAPR = ethers.BigNumber.from('101');
-      await expect(Pool.deploy(randomAddress, randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
+      await expect(Pool.deploy(TEST_ADDRESS, TEST_ADDRESS, TEST_ADDRESS, PoolAPR)).to.be.revertedWith(
         'APR must be between 1 and 100'
       );
     });
@@ -347,10 +343,52 @@ describe('Pool', function () {
 
     it("reverts when users don't have any reward", async function () {
       const [deployer, user1] = await ethers.getSigners();
-      const user1StakedValue = ethers.utils.parseEther('10');
       const { PoolInstance } = await loadFixture(deployContracts);
 
       await expect(PoolInstance.connect(user1).claimReward()).to.be.revertedWith("User doesn't have any reward");
+    });
+  });
+
+  describe('Setters', function () {
+    it('can change CEth token address', async function () {
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await PoolInstance.setCEthToken(TEST_ADDRESS);
+
+      const cEthToken = await PoolInstance.cEthToken();
+
+      expect(cEthToken).to.equal(TEST_ADDRESS);
+    });
+
+    it('can change reward token address', async function () {
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await PoolInstance.setRewardToken(TEST_ADDRESS);
+
+      const rewardToken = await PoolInstance.rewardToken();
+
+      expect(rewardToken).to.equal(TEST_ADDRESS);
+    });
+
+    it('can change price feed address', async function () {
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await PoolInstance.setPriceFeed(TEST_ADDRESS);
+
+      const priceFeed = await PoolInstance.priceFeed();
+
+      expect(priceFeed).to.equal(TEST_ADDRESS);
+    });
+
+    it('can change APR value', async function () {
+      const { PoolInstance } = await loadFixture(deployContracts);
+      const newApr = ethers.BigNumber.from('5');
+
+      await PoolInstance.setAPR(newApr);
+
+      const apr = await PoolInstance.apr();
+
+      expect(apr).to.equal(newApr);
     });
   });
 

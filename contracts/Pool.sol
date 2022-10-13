@@ -103,6 +103,34 @@ contract Pool is Ownable {
     // Mutative functions
 
     /**
+     * @notice Change CEth token address
+     */
+    function setCEthToken(address payable _cEtherContract) external onlyOwner {
+        cEthToken = CEth(_cEtherContract);
+    }
+
+    /**
+     * @notice Change reward token address
+     */
+    function setRewardToken(address _rewardTokenContract) external onlyOwner {
+        rewardToken = IERC20(_rewardTokenContract);
+    }
+
+    /**
+     * @notice Change price feed address
+     */
+    function setPriceFeed(address _priceFeedContract) external onlyOwner {
+        priceFeed = AggregatorV3Interface(_priceFeedContract);
+    }
+
+    /**
+     * @notice Change APR
+     */
+    function setAPR(uint8 _apr) external onlyOwner {
+        apr = _apr;
+    }
+
+    /**
      * @notice Stake given amount of liquidity
      */
     function stake() public payable {
