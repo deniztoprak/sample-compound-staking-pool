@@ -2,6 +2,9 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "../interfaces/CEth.sol";
 
 import "hardhat/console.sol";
@@ -12,9 +15,11 @@ import "hardhat/console.sol";
  * @notice Staking pool that rewards ETH providers with fungible tokens
  */
 
-contract Pool {
+contract Pool is Ownable {
     // Use SafeERC20 to deal with non-reverting / non-standard ERC20 tokens
     using SafeERC20 for IERC20;
+    // Use SafeCast to deal with possible overflows by calculating the reward
+    using SafeCast for int256;
 
     // Events
     event Staked(address indexed account, uint256 amount);
@@ -24,6 +29,7 @@ contract Pool {
 
     CEth public cEthToken;
     IERC20 public rewardToken;
+    AggregatorV3Interface public priceFeed;
     uint8 public apr;
 
     struct Stake {
@@ -42,6 +48,7 @@ contract Pool {
     constructor(
         address payable _cEtherContract,
         address _rewardTokenContract,
+        address _priceFeedContract,
         uint8 _apr
     ) {
         require(_cEtherContract != address(0), "CEth token contract address can not be zero");
@@ -49,6 +56,7 @@ contract Pool {
         require(_apr > 0 && _apr <= 100, "APR must be between 1 and 100");
         cEthToken = CEth(_cEtherContract);
         rewardToken = IERC20(_rewardTokenContract);
+        priceFeed = AggregatorV3Interface(_priceFeedContract);
         apr = _apr;
     }
 
@@ -83,17 +91,10 @@ contract Pool {
     function calculateReward(address _account) internal view returns (uint256) {
         uint256 yearlyInterest = (_stakes[_account].balance * apr) / 100;
         uint256 stakedDay = (block.timestamp - _stakes[_account].lastUpdate) / 60 / 60 / 24;
-        // console.log("Balance", _stakes[account].balance);
-        // console.log("Yearly interest", yearlyInterest);
-        // console.log("Last stake time", _stakes[account].lastUpdate);
-        // console.log("Block time", block.timestamp);
-        // console.log("Time diff", block.timestamp - _stakes[account].lastUpdate);
-        // console.log("Staked Day", stakedDay);
-        // console.log("Reward", (yearlyInterest / 360) * stakedDay);
 
         // Calculate daily periodic interest rate (yearlyInterest / 360)
         // Assume the APR is for 360 days instead of 365
-        // 360 is a highly composite number which yields more precise results
+        // 360 is a highly composite number which generates more precise results
         // https://en.wikipedia.org/wiki/Highly_composite_number
         return (yearlyInterest / 360) * stakedDay;
     }
@@ -135,6 +136,17 @@ contract Pool {
         (bool success, ) = msg.sender.call{ value: _amount }("");
         require(success, "Receiver rejected ETH transfer");
         emit Withdrawn(msg.sender, _amount);
+    }
+
+    function claimReward() external {
+        uint256 reward = calculateReward(msg.sender);
+        require(reward > 0, "User doesn't have any reward");
+
+        _stakes[msg.sender].dueReward = 0;
+        _stakes[msg.sender].lastUpdate = block.timestamp;
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+
+        rewardToken.transferFrom(owner(), msg.sender, reward * price.toUint256());
     }
 
     receive() external payable {

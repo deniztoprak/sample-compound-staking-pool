@@ -13,27 +13,35 @@ describe('Pool', function () {
     const CEthToken = await ethers.getContractFactory('DevCEthToken');
     const CEthTokenInstance = await CEthToken.deploy();
 
-    const USDCToken = await ethers.getContractFactory('DevUSDCToken');
-    const USDCTokenInitialSupply = ethers.BigNumber.from('999999999999999999');
-    const USDCTokenInstance = await USDCToken.deploy(USDCTokenInitialSupply);
+    const RewardToken = await ethers.getContractFactory('DevUSDCToken');
+    const RewardTokenInitialSupply = ethers.BigNumber.from('999999999999999999999');
+    const RewardTokenInstance = await RewardToken.deploy(RewardTokenInitialSupply);
+
+    const PriceFeed = await ethers.getContractFactory('DevPriceAggregator');
+    const PriceFeedInstance = await PriceFeed.deploy();
 
     const Pool = await ethers.getContractFactory('Pool');
     const PoolAPR = ethers.BigNumber.from('10');
-    const PoolInstance = await Pool.deploy(CEthTokenInstance.address, USDCTokenInstance.address, PoolAPR);
+    const PoolInstance = await Pool.deploy(
+      CEthTokenInstance.address,
+      RewardTokenInstance.address,
+      PriceFeedInstance.address,
+      PoolAPR
+    );
 
     await PoolInstance.deployed();
     // Allow Pool to spend all issued USDC tokens
-    await USDCTokenInstance.approve(PoolInstance.address, USDCTokenInitialSupply);
+    await RewardTokenInstance.approve(PoolInstance.address, RewardTokenInitialSupply);
 
-    return { PoolInstance, CEthTokenInstance, USDCTokenInstance, PoolAPR };
+    return { PoolInstance, CEthTokenInstance, RewardTokenInstance, PoolAPR };
   }
 
   describe('Deployment', function () {
     it('sets the reward token address', async function () {
-      const { PoolInstance, USDCTokenInstance } = await loadFixture(deployContracts);
+      const { PoolInstance, RewardTokenInstance } = await loadFixture(deployContracts);
       const rewardToken = await PoolInstance.rewardToken();
 
-      expect(rewardToken).to.equal(USDCTokenInstance.address);
+      expect(rewardToken).to.equal(RewardTokenInstance.address);
     });
 
     it('sets the CEth token address', async function () {
@@ -47,7 +55,7 @@ describe('Pool', function () {
       const Pool = await ethers.getContractFactory('Pool');
       const randomAddress = '0x1111111111111111111111111111111111111111';
 
-      await expect(Pool.deploy(randomAddress, ethers.constants.AddressZero, '123')).to.be.revertedWith(
+      await expect(Pool.deploy(randomAddress, ethers.constants.AddressZero, randomAddress, '123')).to.be.revertedWith(
         'Reward token contract address can not be zero'
       );
     });
@@ -56,7 +64,7 @@ describe('Pool', function () {
       const Pool = await ethers.getContractFactory('Pool');
       const randomAddress = '0x1111111111111111111111111111111111111111';
 
-      await expect(Pool.deploy(ethers.constants.AddressZero, randomAddress, '123')).to.be.revertedWith(
+      await expect(Pool.deploy(ethers.constants.AddressZero, randomAddress, randomAddress, '123')).to.be.revertedWith(
         'CEth token contract address can not be zero'
       );
     });
@@ -72,7 +80,7 @@ describe('Pool', function () {
       const Pool = await ethers.getContractFactory('Pool');
       const randomAddress = '0x1111111111111111111111111111111111111111';
       const PoolAPR = ethers.BigNumber.from('0');
-      await expect(Pool.deploy(randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
+      await expect(Pool.deploy(randomAddress, randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
         'APR must be between 1 and 100'
       );
     });
@@ -81,7 +89,7 @@ describe('Pool', function () {
       const Pool = await ethers.getContractFactory('Pool');
       const randomAddress = '0x1111111111111111111111111111111111111111';
       const PoolAPR = ethers.BigNumber.from('101');
-      await expect(Pool.deploy(randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
+      await expect(Pool.deploy(randomAddress, randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
         'APR must be between 1 and 100'
       );
     });
@@ -286,6 +294,47 @@ describe('Pool', function () {
       await expect(PoolInstance.connect(user1).withdraw(user1StakedValue.add(1))).to.be.revertedWith(
         "User doesn't have enough balance"
       );
+    });
+  });
+
+  describe('Claim', function () {
+    it('sends reward when claimed by users', async function () {
+      const [deployer, user1, user2] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('36');
+      const user2StakedValue = ethers.utils.parseEther('72');
+      const { PoolInstance, RewardTokenInstance, PoolAPR } = await loadFixture(deployContracts);
+
+      await PoolInstance.connect(user1).stake({ value: user1StakedValue });
+      await PoolInstance.connect(user2).stake({ value: user2StakedValue });
+
+      await time.increase(ONE_YEAR_IN_SECONDS);
+
+      await PoolInstance.connect(user1).claimReward();
+      await PoolInstance.connect(user2).claimReward();
+
+      const user1ExpectedReward = user1StakedValue.mul(PoolAPR).div(100);
+      const user2ExpectedReward = user2StakedValue.mul(PoolAPR).div(100);
+
+      const user1RemainingReward = await PoolInstance.rewardOf(user1.address);
+      const user2RemainingReward = await PoolInstance.rewardOf(user2.address);
+
+      const user1ConvertedReward = await RewardTokenInstance.balanceOf(user1.address);
+      const user2ConvertedReward = await RewardTokenInstance.balanceOf(user2.address);
+
+      expect(user1RemainingReward).to.be.equal(ethers.BigNumber.from('0'));
+      expect(user2RemainingReward).to.be.equal(ethers.BigNumber.from('0'));
+
+      // PriceFeed -> 1 ETH = 2 USD
+      expect(user1ConvertedReward).to.be.equal(user1ExpectedReward.mul(2));
+      expect(user2ConvertedReward).to.be.equal(user2ExpectedReward.mul(2));
+    });
+
+    it("reverts when users don't have any reward", async function () {
+      const [deployer, user1] = await ethers.getSigners();
+      const user1StakedValue = ethers.utils.parseEther('10');
+      const { PoolInstance } = await loadFixture(deployContracts);
+
+      await expect(PoolInstance.connect(user1).claimReward()).to.be.revertedWith("User doesn't have any reward");
     });
   });
 

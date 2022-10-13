@@ -11,6 +11,12 @@ import "../interfaces/CEth.sol";
 contract DevCEthToken is CEth {
     function mint() external payable {}
 
+    function exchangeRateCurrent() external returns (uint256) {}
+
+    function supplyRatePerBlock() external returns (uint256) {}
+
+    function redeem(uint256) external returns (uint256) {}
+
     function redeemUnderlying(uint256 redeemAmount) external returns (uint256) {
         (bool success, ) = msg.sender.call{ value: redeemAmount }("");
 
