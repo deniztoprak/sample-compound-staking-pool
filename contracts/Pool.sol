@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../interfaces/CEth.sol";
 
 import "hardhat/console.sol";
 
@@ -21,6 +22,7 @@ contract Pool {
 
     // State variables
 
+    CEth public cEthToken;
     IERC20 public rewardToken;
     uint8 public apr;
 
@@ -34,13 +36,19 @@ contract Pool {
     mapping(address => Stake) private _stakes;
 
     /**
-     * @dev Reward token is injected in constuctor to prevent tight coupling with reward implementation
+     * @dev Contracts are injected to prevent tight coupling with reward implementation
      */
 
-    constructor(address _rewardToken, uint8 _apr) {
-        require(_rewardToken != address(0), "Reward token address can not be zero");
+    constructor(
+        address payable _cEtherContract,
+        address _rewardTokenContract,
+        uint8 _apr
+    ) {
+        require(_cEtherContract != address(0), "CEth token contract address can not be zero");
+        require(_rewardTokenContract != address(0), "Reward token contract address can not be zero");
         require(_apr > 0 && _apr <= 100, "APR must be between 1 and 100");
-        rewardToken = IERC20(_rewardToken);
+        cEthToken = CEth(_cEtherContract);
+        rewardToken = IERC20(_rewardTokenContract);
         apr = _apr;
     }
 
@@ -106,6 +114,7 @@ contract Pool {
         _stakes[msg.sender].balance += msg.value;
         _stakes[msg.sender].lastUpdate = block.timestamp;
         _totalReserve += msg.value;
+        cEthToken.mint{ value: msg.value, gas: 250000 }();
         emit Staked(msg.sender, msg.value);
     }
 
@@ -122,12 +131,15 @@ contract Pool {
         _stakes[msg.sender].balance -= _amount;
         _stakes[msg.sender].lastUpdate = block.timestamp;
         _totalReserve -= _amount;
+        require(cEthToken.redeemUnderlying(_amount) == 0, "Failed to redeem assets");
         (bool success, ) = msg.sender.call{ value: _amount }("");
         require(success, "Receiver rejected ETH transfer");
         emit Withdrawn(msg.sender, _amount);
     }
 
     receive() external payable {
-        stake();
+        if (msg.sender != address(cEthToken)) {
+            stake();
+        }
     }
 }

@@ -3,26 +3,29 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
-const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
-// Assume the APR is for 360 days instead of 365
-const ONE_YEAR_IN_SECONDS = ONE_DAY_IN_SECONDS * 360;
-
 describe('Pool', function () {
+  const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
+  // Assume the APR is for 360 days instead of 365
+  const ONE_YEAR_IN_SECONDS = ONE_DAY_IN_SECONDS * 360;
+
   // Define a fixture to reuse the same setup
   async function deployContracts() {
+    const CEthToken = await ethers.getContractFactory('DevCEthToken');
+    const CEthTokenInstance = await CEthToken.deploy();
+
     const USDCToken = await ethers.getContractFactory('DevUSDCToken');
     const USDCTokenInitialSupply = ethers.BigNumber.from('999999999999999999');
     const USDCTokenInstance = await USDCToken.deploy(USDCTokenInitialSupply);
 
     const Pool = await ethers.getContractFactory('Pool');
     const PoolAPR = ethers.BigNumber.from('10');
-    const PoolInstance = await Pool.deploy(USDCTokenInstance.address, PoolAPR);
+    const PoolInstance = await Pool.deploy(CEthTokenInstance.address, USDCTokenInstance.address, PoolAPR);
 
     await PoolInstance.deployed();
     // Allow Pool to spend all issued USDC tokens
     await USDCTokenInstance.approve(PoolInstance.address, USDCTokenInitialSupply);
 
-    return { PoolInstance, USDCTokenInstance, PoolAPR };
+    return { PoolInstance, CEthTokenInstance, USDCTokenInstance, PoolAPR };
   }
 
   describe('Deployment', function () {
@@ -33,10 +36,28 @@ describe('Pool', function () {
       expect(rewardToken).to.equal(USDCTokenInstance.address);
     });
 
+    it('sets the CEth token address', async function () {
+      const { PoolInstance, CEthTokenInstance } = await loadFixture(deployContracts);
+      const cEthToken = await PoolInstance.cEthToken();
+
+      expect(cEthToken).to.equal(CEthTokenInstance.address);
+    });
+
     it('reverts when the reward token address is not provided', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      await expect(Pool.deploy(ethers.constants.AddressZero, '123')).to.be.revertedWith(
-        'Reward token address can not be zero'
+      const randomAddress = '0x1111111111111111111111111111111111111111';
+
+      await expect(Pool.deploy(randomAddress, ethers.constants.AddressZero, '123')).to.be.revertedWith(
+        'Reward token contract address can not be zero'
+      );
+    });
+
+    it('reverts when the CEth token address is not provided', async function () {
+      const Pool = await ethers.getContractFactory('Pool');
+      const randomAddress = '0x1111111111111111111111111111111111111111';
+
+      await expect(Pool.deploy(ethers.constants.AddressZero, randomAddress, '123')).to.be.revertedWith(
+        'CEth token contract address can not be zero'
       );
     });
 
@@ -49,16 +70,20 @@ describe('Pool', function () {
 
     it('reverts when the annual percentage rate is below 1', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const USDCTokenAddress = '0x1111111111111111111111111111111111111111';
+      const randomAddress = '0x1111111111111111111111111111111111111111';
       const PoolAPR = ethers.BigNumber.from('0');
-      await expect(Pool.deploy(USDCTokenAddress, PoolAPR)).to.be.revertedWith('APR must be between 1 and 100');
+      await expect(Pool.deploy(randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
+        'APR must be between 1 and 100'
+      );
     });
 
     it('reverts when the annual percentage rate is above 100', async function () {
       const Pool = await ethers.getContractFactory('Pool');
-      const USDCTokenAddress = '0x1111111111111111111111111111111111111111';
+      const randomAddress = '0x1111111111111111111111111111111111111111';
       const PoolAPR = ethers.BigNumber.from('101');
-      await expect(Pool.deploy(USDCTokenAddress, PoolAPR)).to.be.revertedWith('APR must be between 1 and 100');
+      await expect(Pool.deploy(randomAddress, randomAddress, PoolAPR)).to.be.revertedWith(
+        'APR must be between 1 and 100'
+      );
     });
   });
 
