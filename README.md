@@ -34,7 +34,7 @@ npm install
 
 ## Run
 
-- Deploy contracts to local network:
+- Deploy contracts to Görli testnet:
 
 ```sh
 npm run deploy
