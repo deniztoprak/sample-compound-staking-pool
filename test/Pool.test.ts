@@ -84,7 +84,7 @@ describe('Pool', function () {
       const { PoolInstance } = await loadFixture(deployContracts);
       await PoolInstance.connect(user1).stake({ value: user1StakedValue });
       await PoolInstance.connect(user2).stake({ value: user2StakedValue });
-      const totalBalance = await ethers.provider.getBalance(PoolInstance.address);
+      const totalBalance = await PoolInstance.totalReserve();
 
       expect(totalBalance).to.equal(user1StakedValue.add(user2StakedValue));
     });
@@ -174,7 +174,7 @@ describe('Pool', function () {
       await PoolInstance.connect(user2).stake({ value: user2StakedValue });
       await PoolInstance.connect(user1).withdraw(user1StakedValue.div(2));
       await PoolInstance.connect(user2).withdraw(user2StakedValue.div(2));
-      const totalBalance = await ethers.provider.getBalance(PoolInstance.address);
+      const totalBalance = await PoolInstance.totalReserve();
 
       expect(totalBalance).to.equal(user1StakedValue.add(user2StakedValue).div(2));
     });
@@ -265,7 +265,7 @@ describe('Pool', function () {
   });
 
   describe('Fallback', function () {
-    it.only('receives liquidity when users send it directly to the contract address', async function () {
+    it('receives liquidity when users send it directly to the contract address', async function () {
       const [deployer, user1] = await ethers.getSigners();
       const user1StakedValue = ethers.utils.parseEther('5');
       const { PoolInstance } = await loadFixture(deployContracts);

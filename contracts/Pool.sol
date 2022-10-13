@@ -30,11 +30,11 @@ contract Pool {
         uint256 dueReward;
     }
 
+    uint256 private _totalReserve;
     mapping(address => Stake) private _stakes;
 
     /**
-     * @dev Reward token address is injected in constuctor to prevent tight coupling with reward implementation
-     * (provides modularity and saves gas)
+     * @dev Reward token is injected in constuctor to prevent tight coupling with reward implementation
      */
 
     constructor(address _rewardToken, uint8 _apr) {
@@ -45,6 +45,14 @@ contract Pool {
     }
 
     // View functions
+
+    /**
+     * @notice Returns total ETH reserve of the contract
+     * @dev TODO: Iterate _stakes map instead of storing the value to save more gas
+     */
+    function totalReserve() external view returns (uint256) {
+        return _totalReserve;
+    }
 
     /**
      * @notice Returns the balance of an account
@@ -91,12 +99,13 @@ contract Pool {
         require(msg.value >= 5 ether, "Staking amount should be minimum 5 ETH");
         if (_stakes[msg.sender].balance != 0) {
             // If user has already staked: calculate the reward, store it in dueReward and update stake time
-            // This prevents false reward calculation when user adds liquidity incrementally
+            // This prevents false reward calculation when users add liquidity incrementally
             _stakes[msg.sender].dueReward += calculateReward(msg.sender);
         }
 
         _stakes[msg.sender].balance += msg.value;
         _stakes[msg.sender].lastUpdate = block.timestamp;
+        _totalReserve += msg.value;
         emit Staked(msg.sender, msg.value);
     }
 
@@ -112,6 +121,7 @@ contract Pool {
         _stakes[msg.sender].dueReward += calculateReward(msg.sender);
         _stakes[msg.sender].balance -= _amount;
         _stakes[msg.sender].lastUpdate = block.timestamp;
+        _totalReserve -= _amount;
         (bool success, ) = msg.sender.call{ value: _amount }("");
         require(success, "Receiver rejected ETH transfer");
         emit Withdrawn(msg.sender, _amount);
